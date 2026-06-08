@@ -1,0 +1,94 @@
+name: build-scan-deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: cr.yandex
+  REGISTRY_ID: crpijuhcmpi26d3n1vqo
+  IMAGE_NAME: fastapi-demo-5000
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  build-scan-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint Dockerfile (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+      - name: Set image ref
+        id: ref
+        run: echo "image=${REGISTRY}/${REGISTRY_ID}/${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: docker build -t "${{ steps.ref.outputs.image }}" .
+
+      - name: Trivy scan (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '0'
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Trivy gate (fail on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          format: cyclonedx
+          output: sbom-cyclonedx.json
+          scanners: ''
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom-cyclonedx.json
+          retention-days: 90
+
+      - name: Login to Yandex Container Registry
+        run: |
+          echo '${{ secrets.YC_SA_KEY_JSON }}' | docker login \
+            --username json_key --password-stdin ${REGISTRY}
+
+      - name: Push image
+        run: |
+          docker push "${{ steps.ref.outputs.image }}"
+          docker tag "${{ steps.ref.outputs.image }}" "${REGISTRY}/${REGISTRY_ID}/${IMAGE_NAME}:latest"
+          docker push "${REGISTRY}/${REGISTRY_ID}/${IMAGE_NAME}:latest"
+
+      - name: Trigger deploy on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: /home/julia/redeploy.sh

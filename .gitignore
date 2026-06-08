@@ -5,3 +5,5 @@ __pycache__/
 key.json
 trivy-reports/
 .idea
+
+github-key.json
