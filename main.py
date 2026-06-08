@@ -82,7 +82,7 @@ HTML = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-  <h1>🐱 Котик 🐱</h1>
+  <h1> Рандомный кот </h1>
   <img id="cat" src="/cat.jpg" alt="кот">
   <button id="more">Ещё</button>
 <script>
