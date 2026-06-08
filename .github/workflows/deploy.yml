@@ -92,7 +92,9 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          script_stop: true
           script: |
+            export PATH=$PATH:/home/julia/yandex-cloud/bin
             IMAGE="cr.yandex/crpijuhcmpi26d3n1vqo/fastapi-demo-from-github-5009:${{ github.sha }}"
             docker pull "$IMAGE"
             docker stop fastapi-demo-from-github-5009 2>/dev/null || true
