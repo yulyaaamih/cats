@@ -15,13 +15,12 @@ CAT_API = "https://api.thecatapi.com/v1/images/search"
 FALLBACK = "https://cataas.com/cat"
 
 
-MAX_SIDE = 400   # макс. сторона картинки в пикселях
-QUALITY = 80     # качество jpeg
+MAX_SIDE = 400
+QUALITY = 80
 
 
 @app.get("/cat.jpg")
 async def cat_image():
-    """Сервер качает котика, ужимает и отдаёт лёгкий jpeg."""
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             meta = await client.get(CAT_API)
@@ -83,7 +82,7 @@ HTML = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-  <h1>🐱 Котик</h1>
+  <h1>🐱 Котик 🐱</h1>
   <img id="cat" src="/cat.jpg" alt="кот">
   <button id="more">Ещё</button>
 <script>
