@@ -85,16 +85,18 @@ jobs:
           docker tag "${{ steps.ref.outputs.image }}" "${REGISTRY}/${REGISTRY_ID}/${IMAGE_NAME}:latest"
           docker push "${REGISTRY}/${REGISTRY_ID}/${IMAGE_NAME}:latest"
 
+
       - name: Trigger deploy on VM
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          envs: GITHUB_SHA
           script: |
-            IMAGE="cr.yandex/crpijuhcmpi26d3n1vqo/fastapi-demo-from-github-5009:latest"
+            IMAGE="cr.yandex/crpijuhcmpi26d3n1vqo/fastapi-demo-from-github-5009:${GITHUB_SHA}"
             docker pull "$IMAGE"
             docker stop fastapi-demo-from-github-5009 2>/dev/null || true
             docker rm fastapi-demo-from-github-5009 2>/dev/null || true
             docker run -d --name fastapi-demo-from-github-5009 -p 5009:5009 "$IMAGE"
-            echo "deployed $(date)"
+            echo "deployed ${GITHUB_SHA} $(date)"
