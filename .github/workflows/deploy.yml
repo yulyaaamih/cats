@@ -8,7 +8,7 @@ on:
 env:
   REGISTRY: cr.yandex
   REGISTRY_ID: crpijuhcmpi26d3n1vqo
-  IMAGE_NAME: fastapi-demo-5000
+  IMAGE_NAME: fastapi-demo-from-github-5009
 
 permissions:
   contents: read
