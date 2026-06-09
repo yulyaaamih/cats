@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cats</title>
+<style>
+  body{
+    font-family: system-ui, sans-serif;
+    min-height:100vh;
+    margin:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:20px;
+    background:#fafafa;
+  }
+  h1{font-weight:600;color:#333}
+  img{
+    max-width:400px;
+    width:90vw;
+    border-radius:12px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);
+  }
+  button{
+    font-size:16px;
+    padding:10px 24px;
+    border:none;
+    border-radius:8px;
+    background:#333;
+    color:#fff;
+    cursor:pointer;
+  }
+  button:hover{background:#555}
+  button:disabled{opacity:.5;cursor:wait}
+</style>
+</head>
+<body>
+  <h1> Рандомный кот </h1>
+  <img id="cat" src="/cat.jpg" alt="кот">
+  <button id="more">Ещё</button>
+<script>
+  const img = document.getElementById('cat');
+  const btn = document.getElementById('more');
+  btn.addEventListener('click', () => {
+    btn.disabled = true;
+    img.src = '/cat.jpg?' + Date.now();   // ?время — чтобы браузер не брал из кеша
+  });
+  img.addEventListener('load', () => btn.disabled = false);
+  img.addEventListener('error', () => btn.disabled = false);
+</script>
+</body>
+</html>
