@@ -8,11 +8,31 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry import trace
+
 app = FastAPI()
 
 INDEX_HTML = Path(__file__).parent / "static" / "index.html"
 
+provider = TracerProvider()
+
+exporter = OTLPSpanExporter(
+    endpoint="http://localhost:4317",
+    insecure=True,
+)
+
+provider.add_span_processor(
+    BatchSpanProcessor(exporter)
+)
+
+trace.set_tracer_provider(provider)
+
 Instrumentator().instrument(app).expose(app)
+FastAPIInstrumentor.instrument_app(app)
 
 CAT_API = "https://api.thecatapi.com/v1/images/search"
 FALLBACK = "https://cataas.com/cat"
@@ -44,3 +64,8 @@ async def cat_image():
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return FileResponse(INDEX_HTML)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}, 200

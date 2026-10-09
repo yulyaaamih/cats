@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cats-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cats-app
+  template:
+    metadata:
+      labels:
+        app: cats-app
+    spec:
+      containers:
+      - name: cats-app
+        image: 192.168.64.26:5100/cats-app:1.1
+        ports:
+        - containerPort: 5000
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cats-app
+spec:
+  selector:
+    app: cats-app
+  ports:
+  - port: 80
+    targetPort: 5000
