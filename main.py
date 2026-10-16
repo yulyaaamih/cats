@@ -1,38 +1,40 @@
 import io
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
+import asyncio
 
+import asyncpg
 import httpx
 from PIL import Image
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse, Response
-from prometheus_fastapi_instrumentator import Instrumentator
+from fastapi import FastAPI, Query
+from fastapi.responses import FileResponse, HTMLResponse, Response, JSONResponse
 
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry import trace
+import settings
 
-app = FastAPI()
+logger = logging.getLogger(__name__)
+
+CREATE_TABLE = """
+CREATE TABLE IF NOT EXISTS cats (
+    id SERIAL PRIMARY KEY,
+    img_url TEXT NOT NULL
+)
+"""
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.db = await asyncpg.create_pool(settings.DATABASE_URL, min_size=1, max_size=5)
+    async with app.state.db.acquire() as conn:
+        await conn.execute(CREATE_TABLE)
+    yield
+    await app.state.db.close()
+
+
+app = FastAPI(lifespan=lifespan)
 
 INDEX_HTML = Path(__file__).parent / "static" / "index.html"
-
-provider = TracerProvider()
-
-exporter = OTLPSpanExporter(
-    endpoint="http://localhost:4317",
-    insecure=True,
-)
-
-provider.add_span_processor(
-    BatchSpanProcessor(exporter)
-)
-
-trace.set_tracer_provider(provider)
-
-Instrumentator().instrument(app).expose(app)
-FastAPIInstrumentor.instrument_app(app)
 
 CAT_API = "https://api.thecatapi.com/v1/images/search"
 FALLBACK = "https://cataas.com/cat"
@@ -52,13 +54,26 @@ async def cat_image():
             img = await client.get(img_url)
             img.raise_for_status()
 
+        try:
+            await app.state.db.execute("INSERT INTO cats (img_url) VALUES ($1)", img_url)
+        except Exception:
+            logger.exception("failed to save img_url")
+
         im = Image.open(io.BytesIO(img.content)).convert("RGB")
-        im.thumbnail((MAX_SIDE, MAX_SIDE))   # ресайз с сохранением пропорций
+        im.thumbnail((MAX_SIDE, MAX_SIDE))
         buf = io.BytesIO()
         im.save(buf, format="JPEG", quality=QUALITY, optimize=True)
         return Response(content=buf.getvalue(), media_type="image/jpeg")
     except Exception:
         return Response(status_code=302, headers={"Location": FALLBACK})
+
+
+@app.get("/cats")
+async def list_cats(limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
+    rows = await app.state.db.fetch(
+        "SELECT img_url FROM cats ORDER BY id DESC LIMIT $1 OFFSET $2", limit, offset
+    )
+    return [row["img_url"] for row in rows]
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -67,5 +82,15 @@ async def root():
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}, 200
+async def health():
+
+    try:
+        await asyncio.wait_for(app.state.db.fetchval("SELECT 1"), timeout=2)
+    except Exception as e:
+        logger.warning("db ping failed: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "db": "unavailable"},
+        )
+
+    return {"status": "ok"}
