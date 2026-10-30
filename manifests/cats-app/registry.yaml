@@ -13,7 +13,7 @@ spec:
         app: registry
     spec:
       nodeSelector:
-        kubernetes.io/hostname: k3s-server
+        kubernetes.io/hostname: k3s-admin
       containers:
         - name: registry
           image: registry:2

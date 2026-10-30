@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: cats-app
-        image: 192.168.64.32:30500/cats-app:1.2
+        image: 192.168.64.50:30500/cats-app:1.1
         ports:
         - containerPort: 5000
         env:

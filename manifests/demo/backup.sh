@@ -1,6 +1,11 @@
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.20.0/cert-manager.yaml
 kubectl rollout status deployment -n cert-manager cert-manager-webhook
 kubectl apply -f https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.15.1/manifest.yaml
+
+until kubectl apply -f https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.15.1/manifest.yaml; do
+  sleep 5
+done
+
 kubectl rollout status deployment -n cnpg-system barman-cloud
 kubectl create secret generic minio-creds --from-literal=ACCESS_KEY_ID=minioadmin --from-literal=ACCESS_SECRET_KEY=minioadmin123
 kubectl apply -f minio.yaml
